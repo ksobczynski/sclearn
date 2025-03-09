@@ -3,6 +3,9 @@ from sklearn.metrics import accuracy_score
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import GridSearchCV, cross_val_predict, cross_val_score
 import matplotlib.pyplot as plt
+import numpy as np
+from numpy.dtypes import StringDType
+from image_altering import move_image
 
 mnist = fetch_openml('mnist_784', as_frame=False)
 
@@ -15,7 +18,17 @@ def plot_digit(image_data):
 some_digit = X[0]
 plot_digit(some_digit)
 # plt.show()
+
 X_train, X_test, y_train, y_test = X[:60000], X[60000:], y[:60000], y[60000:]
+
+X_to_append = np.zeros((240000,784), dtype=int)
+y_to_append = np.empty(240000, dtype=StringDType())
+for i in range(60000):
+    l, r, u, d = move_image("left", X_train[i]), move_image("right", X_train[i]), move_image("up", X_train[i]), move_image("down", X_train[i])
+    X_to_append[4*i:4*i+4] = [l,r,u,d]
+    y_to_append[4*i] = y_to_append[4*i+1] = y_to_append[4*i+2] = y_to_append[4*i+3] = y_train[i]
+X_train = np.concatenate((X_train, X_to_append))
+y_train = np.concatenate((y_train, y_to_append))
 # parameters = {'weights':['uniform', 'distance'], 'n_neighbors':[x+1 for x in range(10)]}
 # grid_search = GridSearchCV(knc,parameters, cv=5)
 # grid_search.fit(X_train, y_train)
