@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import RandomizedSearchCV, cross_validate
@@ -10,12 +10,13 @@ from scipy.stats import randint
 from sklearn.ensemble import GradientBoostingClassifier
 from scipy.stats import uniform
 from sklearn.metrics import mean_squared_error
+from sklearn.compose import ColumnTransformer
 
 
 titanic_data = pd.read_csv(Path("./titanic/train.csv"))
 titanic_to_run = pd.read_csv(Path("./titanic/test.csv"))
 # cchwilowe, potrzebne do wspolczynnika korelacji pearsona
-titanic_data.drop(['Name','Ticket', 'Cabin'], inplace=True, axis=1)
+# titanic_data.drop(['Name','Ticket', 'Cabin'], inplace=True, axis=1)
 # Dziele zbior na testowy i treningowy bo test.csv nie ma etykiet
 titanic_test = titanic_data[713:]
 titanic_train = titanic_data[:713]
@@ -25,7 +26,7 @@ titanic_train_y = titanic_train.loc[:,['Survived']]
 titanic_test_y = titanic_test.loc[:,['Survived']]
 titanic_train_X = titanic_train.drop(['Survived'], axis=1)
 titanic_test_X = titanic_test.drop(['Survived'], axis=1)
-
+titanic_train_X.drop(['Name','Ticket', 'Cabin'], inplace=True, axis=1)
 
 gender = titanic_train_X[["Sex"]]
 # print(gender.head(10))
@@ -141,7 +142,43 @@ print("\nTesting on test dataset\n ")
 #                            min_weight_fraction_leaf=np.float64(0.011715877390825802),
 #                            n_estimators=78,
 #                            subsample=np.float64(0.8699259821144918))
-preds = clf.best_estimator_.predict(titanic_test_X)
-final_rmse = mean_squared_error(titanic_test_y, preds)
-print(final_rmse)
-#TODO kod nie dziala, trzeba jeszcze zrobic pipeline dla titanic_test_X zeby wygladal tak jak zestaw treningowy i moze byc okej, 80 procent juz mnie zadowala. posprzataj potem kod jeszcze
+# class columnDropperTransformer():
+#     def __init__(self,columns):
+#         self.columns=columns
+
+#     def transform(self,X,y=None):
+#         return X.drop(self.columns,axis=1)
+
+#     def fit(self, X, y=None):
+#         return self 
+print(titanic_test_X)
+features_to_drop = ["Name","Ticket", "Cabin"]
+# dropper = Pipeline(
+#     steps=[("ColumnDropper", columnDropperTransformer(["Name","Ticket", "Cabin"]))]
+# )
+numeric_features = ["Age", "Fare"]
+numeric_transformer = Pipeline(
+    steps=[("imputer", SimpleImputer(strategy="median")), ("scaler", StandardScaler())]
+)
+
+categorical_features = ["Embarked", "Sex", "Pclass"]
+categorical_transformer = Pipeline(
+    steps=[
+        ("encoder", OneHotEncoder(handle_unknown="ignore"))
+    ]
+)
+
+preprocessor = ColumnTransformer(
+    transformers=[
+        ("num", numeric_transformer, numeric_features),
+        ("cat", categorical_transformer, categorical_features),
+        ("column_dropper", 'drop', features_to_drop)
+    ]
+)
+test_data_ppln = Pipeline(
+steps=[("preprocessor", preprocessor), ("classifier", GradientBoostingClassifier(learning_rate=np.float64(0.7046413926076784), loss='exponential', max_depth=7, min_impurity_decrease=np.float64(2.057871015953816), min_samples_split=9, min_weight_fraction_leaf=np.float64(0.011715877390825802), n_estimators=78, subsample=np.float64(0.8699259821144918)))]
+)
+test_data_ppln.fit(titanic_test_X, titanic_test_y)
+print("model score: %.3f" % test_data_ppln.score(titanic_test_X, titanic_test_y))
+#).921 :)))))))
+# czyscic mi sie nie chce jest git 
